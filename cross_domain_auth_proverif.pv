@@ -1,0 +1,468 @@
+
+free PubChannel: channel.           
+free BlockchainChannel: channel.    
+
+(* Private channels for secure communications *)
+free SecureChannel_AS_A: channel [private].
+free SecureChannel_AS_B: channel [private].
+free TEE_Channel_A: channel [private].
+free TEE_Channel_B: channel [private].
+
+
+(* Device secrets *)
+free ID_i: bitstring [private].          
+free sk_i: bitstring [private].          
+free hsk_i: bitstring [private].         
+free Cred_i: bitstring [private].        
+
+(* AS secrets *)
+free msk_A: bitstring [private].        
+free msk_B: bitstring [private].         
+free vsk_A: bitstring [private].         
+free vsk_B: bitstring [private].         
+free csk_A: bitstring [private].        
+free csk_B: bitstring [private].        
+
+(* Session key *)
+free ssk: bitstring [private].           
+
+(* TEE attestation secrets *)
+free TEE_sk_A: bitstring [private].      
+free TEE_sk_B: bitstring [private].     
+
+(* Threshold tracing secrets *)
+free sk_1: bitstring [private].         
+free sk_2: bitstring [private].
+free sk_3: bitstring [private].
+
+
+free g1: bitstring.                      
+free g2: bitstring.                     
+
+
+type G1.
+type G2.
+type GT.
+type ZpStar.
+
+
+fun H1(bitstring): bitstring.                             
+fun H2(bitstring, bitstring): bitstring.                  
+fun H3(bitstring): bitstring.                             
+fun H4(bitstring): bitstring.                           
+
+fun exp_G1(bitstring, bitstring): bitstring.               
+fun exp_G2(bitstring, bitstring): bitstring.              
+fun mult_G1(bitstring, bitstring): bitstring.            
+fun mult_G2(bitstring, bitstring): bitstring.             
+
+fun pairing(bitstring, bitstring): bitstring.             
+
+fun enc(bitstring, bitstring): bitstring.                 
+fun pk(bitstring): bitstring.                           
+fun aenc(bitstring, bitstring): bitstring.               
+
+fun sign(bitstring, bitstring): bitstring.                
+fun BLS_sign(bitstring, bitstring): bitstring.            
+
+fun TEE_seal(bitstring, bitstring): bitstring.             
+fun TEE_attest(bitstring, bitstring): bitstring.           
+fun TEE_pk(bitstring): bitstring.                         
+
+fun ZKProof_Auth(bitstring, bitstring, bitstring, bitstring, bitstring, bitstring): bitstring.
+fun ZKProof_Pseudonym(bitstring, bitstring, bitstring): bitstring.
+
+fun accumulator_add(bitstring, bitstring): bitstring.      
+fun witness_gen(bitstring, bitstring, bitstring): bitstring. 
+
+fun paillier_enc(bitstring, bitstring, bitstring): bitstring. 
+
+fun threshold_share(bitstring, bitstring, bitstring): bitstring. 
+
+fun xor(bitstring, bitstring): bitstring.
+
+
+reduc forall m: bitstring, k: bitstring; 
+    dec(enc(m, k), k) = m.
+
+reduc forall m: bitstring, sk: bitstring; 
+    adec(aenc(m, pk(sk)), sk) = m.
+
+reduc forall m: bitstring, sk: bitstring; 
+    verify_sign(sign(m, sk), m, pk(sk)) = true.
+
+reduc forall m: bitstring, sk: bitstring; 
+    verify_BLS(BLS_sign(m, sk), m, exp_G1(g1, sk)) = true.
+
+reduc forall m: bitstring, sk: bitstring; 
+    TEE_unseal(TEE_seal(m, sk), sk) = m.
+
+reduc forall m: bitstring, sk: bitstring; 
+    verify_TEE_attest(TEE_attest(m, sk), m, TEE_pk(sk)) = true.
+
+reduc forall r: bitstring, delta: bitstring, cred: bitstring, gamma: bitstring, 
+             a: bitstring, d: bitstring, u: bitstring, w: bitstring, 
+             hpk: bitstring, Q: bitstring;
+    verify_ZKProof_Auth(ZKProof_Auth(r, delta, cred, gamma, a, d), u, w, hpk, Q) = true.
+
+reduc forall ks: bitstring, xi: bitstring, pk_i: bitstring;
+    verify_ZKProof_Pseudonym(ZKProof_Pseudonym(ks, xi, pk_i), pk_i, 
+                             mult_G2(exp_G2(g2, ks), exp_G2(g2, xi))) = true.
+
+reduc forall m: bitstring, sk1: bitstring, sk2: bitstring, r: bitstring;
+    paillier_dec(paillier_enc(m, pk(sk1), r), sk1) = m.
+
+reduc forall s1: bitstring, s2: bitstring, s3: bitstring, sk: bitstring;
+    threshold_recon(threshold_share(sk, (s1), (s2)), 
+                    threshold_share(sk, (s2), (s3)), 
+                    threshold_share(sk, (s1), (s3))) = sk.
+
+equation forall x: bitstring, y: bitstring; xor(xor(x, y), y) = x.
+
+equation forall x: bitstring, y: bitstring, a: bitstring, b: bitstring;
+    pairing(exp_G1(x, a), exp_G2(y, b)) = pairing(exp_G1(x, b), exp_G2(y, a)).
+
+
+event Device_Register_Start(bitstring).
+event Device_Register_Complete(bitstring, bitstring).
+event AS_Register_Device(bitstring, bitstring).
+
+event Credential_Request(bitstring, bitstring).
+event Credential_Issued(bitstring, bitstring, bitstring).
+event Credential_Verified(bitstring, bitstring).
+
+event OnChain_Auth_Start(bitstring, bitstring).
+event OnChain_Auth_Complete(bitstring, bitstring, bitstring).
+event CrossDomain_Auth_Start(bitstring, bitstring, bitstring).
+event CrossDomain_Auth_Complete(bitstring, bitstring, bitstring).
+
+event Session_Key_Established(bitstring, bitstring, bitstring).
+
+event Trace_Request(bitstring, bitstring).
+event Identity_Traced(bitstring, bitstring).
+
+
+query attacker(sk_i).                   
+query attacker(hsk_i).                 
+query attacker(Cred_i).                 
+query attacker(ID_i).                 
+query attacker(msk_A).                  
+query attacker(msk_B).                 
+query attacker(ssk).                  
+query attacker(sk_1).                 
+query attacker(sk_2).
+query attacker(sk_3).
+
+weaksecret sk_i.
+weaksecret hsk_i.
+weaksecret Cred_i.
+weaksecret ssk.
+
+query id: bitstring, pk: bitstring;
+    inj-event(Device_Register_Complete(id, pk)) ==> 
+    inj-event(Device_Register_Start(id)).
+
+query id: bitstring, did: bitstring, delta: bitstring;
+    inj-event(Credential_Issued(id, did, delta)) ==> 
+    inj-event(Credential_Request(id, did)).
+
+query id: bitstring, did: bitstring, pid: bitstring;
+    inj-event(OnChain_Auth_Complete(id, did, pid)) ==> 
+    inj-event(OnChain_Auth_Start(id, did)).
+
+query id: bitstring, did: bitstring, pid: bitstring;
+    inj-event(CrossDomain_Auth_Complete(id, did, pid)) ==> 
+    inj-event(CrossDomain_Auth_Start(id, did, pid)).
+
+query id: bitstring, did_B: bitstring, key: bitstring;
+    inj-event(Session_Key_Established(id, did_B, key)) ==> 
+    inj-event(CrossDomain_Auth_Start(id, did_B, key)).
+
+query id1: bitstring, id2: bitstring;
+    attacker(id1) && attacker(id2) ==> id1 = id2.
+
+noninterf ID_i.
+
+
+let Device_Process =
+    event Device_Register_Start(ID_i);
+    
+    new ks: bitstring;              (* Random secret for key generation *)
+    new b: bitstring;               (* Random nonce for signature *)
+    
+    let pk_i = exp_G2(g2, ks) in
+    
+    let enc_id = enc(ID_i, pk(csk_A)) in
+    out(SecureChannel_AS_A, enc_id);
+    
+    in(SecureChannel_AS_A, (xsk_i: bitstring, xpk_i: bitstring, xks: bitstring, 
+                            rho_1: bitstring));
+    
+    if verify_TEE_attest(rho_1, (xsk_i, xpk_i, xks), TEE_pk(TEE_sk_A)) = true then
+    
+    let sk_i_stored = xsk_i in
+    let pk_i_stored = xpk_i in
+    event Device_Register_Complete(ID_i, pk_i_stored);
+    
+    
+    (* Generate message M1 and signature *)
+    new M1: bitstring;
+    let R = pairing(exp_G1(g1, b), pk_i_stored) in
+    let D = H2(M1, R) in
+    let U = exp_G1(sk_i_stored, xor(b, D)) in
+    let Sign_sk_i = (R, U) in
+    
+    event Credential_Request(ID_i, (M1));
+    let cred_request = enc((ID_i, M1, D, Sign_sk_i, pk_i_stored), pk(csk_B)) in
+    out(PubChannel, cred_request);
+    
+    in(PubChannel, enc_cred_response: bitstring);
+    let (xCred_i: bitstring, xDelta_i: bitstring, xmu: bitstring, rho_2: bitstring) = 
+        dec(enc_cred_response, xks) in
+    
+    if verify_TEE_attest(rho_2, (xCred_i, xDelta_i, xmu), TEE_pk(TEE_sk_B)) = true then
+    
+    if xDelta_i = xor(H1(ID_i), xmu) then
+    if pairing(xCred_i, mult_G2(exp_G2(g2, msk_B), exp_G2(g2, xDelta_i))) = 
+       pairing(g1, g2) then
+    
+    event Credential_Verified(ID_i, xDelta_i);
+    
+    let Cred_i_stored = xCred_i in
+    let Delta_i_stored = xDelta_i in
+    
+
+    new xi: bitstring;
+    let PS_i = mult_G2(exp_G2(g2, xks), exp_G2(g2, xi)) in
+    
+    let pi_k = ZKProof_Pseudonym(xks, xi, pk_i_stored) in
+    
+    new hsk_i_new: bitstring;
+    let hpk_i = exp_G1(g1, hsk_i_new) in
+    
+    event OnChain_Auth_Start(ID_i, (PS_i));
+    let onchain_request = enc((PS_i, hpk_i, Cred_i_stored, Delta_i_stored, pi_k), 
+                              pk(csk_A)) in
+    out(SecureChannel_AS_A, onchain_request);
+    
+    in(SecureChannel_AS_A, enc_onchain_response: bitstring);
+    let (xpk_1: bitstring, xpk_2: bitstring, xpk_3: bitstring,
+         xm_1j: bitstring, xm_2j: bitstring, xm_3j: bitstring,
+         xD_list: bitstring, xPid_i: bitstring, 
+         xu: bitstring, xw: bitstring, xpi_auth: bitstring, rho_3: bitstring) = 
+        dec(enc_onchain_response, hsk_i_new) in
+    
+    if verify_TEE_attest(rho_3, (xPid_i, xu, xw, xpi_auth), TEE_pk(TEE_sk_A)) = true then
+    
+    event OnChain_Auth_Complete(ID_i, (PS_i), xPid_i);
+
+    new M2: bitstring;
+    let v_3 = H3(M2) in
+    let S = exp_G2(v_3, hsk_i_new) in
+    let Sign_hsk_i = (v_3, S) in
+    
+    event CrossDomain_Auth_Start(ID_i, (M2), xPid_i);
+    let crossdomain_request = aenc((PS_i, xPid_i, hpk_i, M2, Sign_hsk_i), 
+                                   pk(msk_B)) in
+    out(PubChannel, crossdomain_request);
+    
+    in(PubChannel, (auth_result: bitstring, rho_4: bitstring));
+    
+    if verify_TEE_attest(rho_4, auth_result, TEE_pk(TEE_sk_B)) = true then
+    if auth_result = (true) then
+    
+    event CrossDomain_Auth_Complete(ID_i, (M2), xPid_i);
+    
+    new session_key: bitstring;
+    event Session_Key_Established(ID_i, (M2), session_key);
+    
+    0.
+
+let AS_A_Process =
+    
+    in(SecureChannel_AS_A, enc_id_request: bitstring);
+    let xID_i = dec(enc_id_request, csk_A) in
+    
+    new ks_gen: bitstring;
+    let pk_i_gen = exp_G2(g2, ks_gen) in
+    let sk_i_gen = exp_G1(g1, (ks_gen, xor(ks_gen, H1(xID_i)))) in
+    
+    let E = mult_G2(pk_i_gen, exp_G2(g2, H1(xID_i))) in
+    let J = exp_G2(E, vsk_A) in
+    let Sign_vsk_A = (E, J) in
+    
+    let rho_1 = TEE_attest((sk_i_gen, pk_i_gen, ks_gen), TEE_sk_A) in
+    
+    out(SecureChannel_AS_A, (sk_i_gen, pk_i_gen, ks_gen, rho_1));
+    
+    event AS_Register_Device(xID_i, pk_i_gen);
+    out(BlockchainChannel, (xID_i, pk_i_gen, Sign_vsk_A, rho_1));
+    
+    
+    in(SecureChannel_AS_A, enc_onchain_req: bitstring);
+    let (xPS_i: bitstring, xhpk_i: bitstring, xCred_i: bitstring, 
+         xDelta_i: bitstring, xpi_k: bitstring) = dec(enc_onchain_req, csk_A) in
+    
+    in(BlockchainChannel, (stored_pk_i: bitstring));
+    if verify_ZKProof_Pseudonym(xpi_k, stored_pk_i, xPS_i) = true then
+    
+    new t_sk_1: bitstring;
+    new t_sk_2: bitstring;
+    new t_sk_3: bitstring;
+    
+    let t_pk_1 = pk(t_sk_1) in
+    let t_pk_2 = pk(t_sk_2) in
+    let t_pk_3 = pk(t_sk_3) in
+    
+    new share_seed_1: bitstring;
+    new share_seed_2: bitstring;
+    new share_seed_3: bitstring;
+    
+    let m_1j = threshold_share(t_sk_1, share_seed_1, share_seed_2) in
+    let m_2j = threshold_share(t_sk_2, share_seed_2, share_seed_3) in
+    let m_3j = threshold_share(t_sk_3, share_seed_3, share_seed_1) in
+    
+    new paillier_r: bitstring;
+    let pid_1 = exp_G1(g1, paillier_r) in
+    let pid_2 = paillier_enc(xID_i, t_pk_1, paillier_r) in
+    let Pid_i = (pid_1, pid_2) in
+    
+    in(BlockchainChannel, (CRL_B: bitstring, Q_B: bitstring));
+    
+    let witness = witness_gen(xDelta_i, CRL_B, Q_B) in
+    let (a: bitstring, d: bitstring) = witness in
+    
+    new r_encrypt: bitstring;
+    let u = exp_G1(g1, r_encrypt) in
+    let w = mult_G1(exp_G1(g1, xDelta_i), exp_G1(xhpk_i, r_encrypt)) in
+    
+    let pi_auth = ZKProof_Auth(r_encrypt, xDelta_i, xCred_i, 
+                               (a), a, d) in
+    
+    let rho_3 = TEE_attest((Pid_i, u, w, pi_auth), TEE_sk_A) in
+    
+    let onchain_response = enc((t_pk_1, t_pk_2, t_pk_3, m_1j, m_2j, m_3j, 
+                                (share_seed_1), Pid_i, u, w, pi_auth, rho_3), 
+                               xhpk_i) in
+    out(SecureChannel_AS_A, onchain_response);
+    
+    new timestamp: bitstring;
+    out(BlockchainChannel, (xPS_i, Pid_i, timestamp, xhpk_i, u, w, pi_auth, rho_3));
+    
+    0.
+
+let AS_B_Process =
+    
+    in(PubChannel, enc_cred_req: bitstring);
+    let (xID_i: bitstring, xM1: bitstring, xD: bitstring, 
+         xSign_sk_i: bitstring, xpk_i: bitstring) = dec(enc_cred_req, csk_B) in
+    
+    in(BlockchainChannel, (stored_ID_i: bitstring, stored_pk_i: bitstring, 
+                           stored_Sign_vsk_A: bitstring, stored_rho_1: bitstring));
+    
+    let (xR: bitstring, xU: bitstring) = xSign_sk_i in
+    let D_prime = H2(xM1, xR) in
+    let E_prime = mult_G2(xpk_i, exp_G2(g2, H1(xID_i))) in
+    
+    let (stored_E: bitstring, stored_J: bitstring) = stored_Sign_vsk_A in
+    
+    if xD = D_prime then
+    if stored_E = E_prime then
+    if xR = pairing(mult_G1(xU, exp_G1(g1, D_prime)), E_prime) then
+    if pairing(g1, stored_J) = pairing(exp_G1(g1, vsk_A), stored_E) then
+    
+    new mu: bitstring;
+    let Delta_i = xor(H1(xID_i), mu) in
+    let Cred_i = exp_G1(g1, (msk_B, Delta_i)) in  (* Simplified: 1/(msk_B + Delta_i) *)
+    
+    event Credential_Issued(xID_i, (msk_B), Delta_i);
+    
+    let rho_2 = TEE_attest((Cred_i, Delta_i, mu), TEE_sk_B) in
+    
+    let cred_response = enc((Cred_i, Delta_i, mu, rho_2), xpk_i) in
+    out(PubChannel, cred_response);
+    
+    out(BlockchainChannel, ((msk_B), xpk_i, Delta_i, rho_2));
+    
+    
+    in(PubChannel, enc_crossdomain_req: bitstring);
+    let (xPS_i: bitstring, xPid_i: bitstring, xhpk_i: bitstring, 
+         xM2: bitstring, xSign_hsk_i: bitstring) = adec(enc_crossdomain_req, msk_B) in
+    
+    in(BlockchainChannel, (stored_Pid_i: bitstring, stored_hpk_i: bitstring, 
+                           stored_pi_auth: bitstring, stored_valid: bitstring));
+    
+    let (xv_3: bitstring, xS: bitstring) = xSign_hsk_i in
+    if pairing(g1, xS) = pairing(xhpk_i, xv_3) then
+    if stored_valid = (true) then
+    
+    let auth_result = (true) in
+    let rho_4 = TEE_attest(auth_result, TEE_sk_B) in
+    
+    out(PubChannel, (auth_result, rho_4));
+    
+    0.
+
+
+let Blockchain_Process =
+    new Q_A: bitstring;                 (* Accumulator for domain A *)
+    new Q_B: bitstring;                 (* Accumulator for domain B *)
+    
+    in(BlockchainChannel, (reg_ID: bitstring, reg_pk: bitstring, 
+                           reg_Sign: bitstring, reg_rho: bitstring));
+    
+    out(BlockchainChannel, (reg_ID, reg_pk, reg_Sign, reg_rho));
+    
+    in(BlockchainChannel, (issue_DID: bitstring, issue_pk: bitstring, 
+                           issue_Delta: bitstring, issue_rho: bitstring));
+    
+    out(BlockchainChannel, (issue_DID, issue_pk, issue_Delta, issue_rho));
+    
+    in(BlockchainChannel, (auth_PS: bitstring, auth_Pid: bitstring, 
+                           auth_ts: bitstring, auth_hpk: bitstring,
+                           auth_u: bitstring, auth_w: bitstring, 
+                           auth_pi: bitstring, auth_rho: bitstring));
+    
+    if verify_ZKProof_Auth(auth_pi, auth_u, auth_w, auth_hpk, Q_B) = true then
+    
+    let valid = (true) in
+    
+    out(BlockchainChannel, (auth_Pid, auth_hpk, auth_pi, valid));
+    
+    in(BlockchainChannel, query_PS: bitstring);
+    out(BlockchainChannel, (auth_Pid, auth_hpk, auth_pi, valid));
+    
+    in(BlockchainChannel, (revoke_CRL: bitstring, revoke_info: bitstring));
+    
+    let Q_B_new = accumulator_add(Q_B, revoke_CRL) in
+    out(BlockchainChannel, (revoke_CRL, Q_B_new));
+    
+    0.
+
+
+let Tracing_Process =
+    in(PubChannel, (trace_Pid: bitstring, evidence: bitstring));
+    
+    event Trace_Request((trace_Pid), evidence);
+    
+    out(PubChannel, (trace_Pid));
+    
+    in(PubChannel, (share_1: bitstring, share_2: bitstring, share_3: bitstring));
+    
+    let recovered_sk_1 = threshold_recon(share_1, share_2, share_3) in
+    
+    let (pid_1: bitstring, pid_2: bitstring) = trace_Pid in
+    let recovered_ID = paillier_dec(pid_2, recovered_sk_1) in
+    
+    event Identity_Traced((trace_Pid), recovered_ID);
+    
+    0.
+
+process
+    (
+        (!Device_Process) |          
+        (!AS_A_Process) |            
+        (!AS_B_Process) |            
+        (!Blockchain_Process) |       
+        (!Tracing_Process)           
+    )

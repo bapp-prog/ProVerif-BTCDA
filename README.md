@@ -7,5 +7,5 @@ opam install proverif OR download from: https://prosecco.gforge.inria.fr/persona
 ### Step 2: Run verification
 proverif cross_domain_auth_proverif.pv
 
-### Step 3: Generate HTML report
+### Step 3: Generate results
 proverif -html output cross_domain_auth_proverif.pv, and view results in output.html
